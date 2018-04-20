@@ -395,7 +395,13 @@ Ran 1 test.
 OK (skipped=1)
 ```
 
-As you can see, the total number of tests has not changed, but the report indicates that some tests were skipped.
+As you can see, the total number of tests has not changed, but the report indicates that some tests were skipped.  If `${SHUNIT_REPORT_SKIP}` is `${SHUNIT_TRUE}`, then the skipped assert will be displayed:
+
+```console
+SKIPPED:assertEquals <the result of '3' was wrong> <3> <3>
+```
+
+Furthermore, if using the macro of the assert, the line number will be included.
 
 Skipping can be controlled with the following functions: `startSkipping()`, `endSkipping()`, and `isSkipping()`. Once skipping is enabled, it will remain enabled until the end of the current test function call, after which skipping is disabled.
 

@@ -28,8 +28,6 @@ SHUNIT_TRUE=0
 SHUNIT_FALSE=1
 SHUNIT_ERROR=2
 
-SHUNIT_REPORT_SKIP=${SHUNIT_FALSE}
-
 # Logging functions.
 _shunit_warn() {
   echo "${__shunit_ansi_yellow}shunit2:WARN${__shunit_ansi_none} $*" >&2
@@ -59,6 +57,8 @@ SHUNIT_CMD_EXPR=${SHUNIT_CMD_EXPR:-${__SHUNIT_CMD_EXPR}}
 # Enable color output. Options are 'never', 'always', or 'auto'.
 SHUNIT_COLOR=${SHUNIT_COLOR:-auto}
 
+SHUNIT_REPORT_SKIP=${SHUNIT_REPORT_SKIP:-${SHUNIT_FALSE}}
+
 # Specific shell checks.
 if \[ -n "${ZSH_VERSION:-}" ]; then
   setopt |grep "^shwordsplit$" >/dev/null
@@ -75,7 +75,6 @@ fi
 # Constants
 #
 
-__SHUNIT_SKIPPED_MSG_PREFIX='SKIPPED:'
 __SHUNIT_MODE_SOURCED='sourced'
 __SHUNIT_MODE_STANDALONE='standalone'
 __SHUNIT_PARENT=${SHUNIT_PARENT:-$0}
@@ -164,7 +163,7 @@ assertEquals() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertEquals "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -204,7 +203,7 @@ assertNotEquals() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertNotEquals "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -243,7 +242,7 @@ assertNull() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertNull "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 2 ]; then
@@ -274,7 +273,7 @@ assertNotNull() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertNotNull "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 2 ]; then
@@ -308,7 +307,7 @@ assertSame() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertSame "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -340,7 +339,7 @@ assertNotSame() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertNotSame "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -385,7 +384,7 @@ assertTrue() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertTrue "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 2 ]; then
@@ -452,7 +451,7 @@ assertFalse() {
     _shunit_assertFail
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip assertFalse "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 2 ]; then
@@ -507,7 +506,7 @@ fail() {
     _shunit_error "fail() requires zero or one arguments; $# given"
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip fail "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 1 ]; then
@@ -538,7 +537,7 @@ failNotEquals() {
     _shunit_error "failNotEquals() requires one or two arguments; $# given"
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip failNotEqual "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -572,7 +571,7 @@ failSame()
     _shunit_error "failSame() requires two or three arguments; $# given"
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip failSame "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -605,7 +604,7 @@ failNotSame() {
     _shunit_error "failNotEquals() requires one or two arguments; $# given"
     return ${SHUNIT_ERROR}
   fi
-  _shunit_shouldSkip $FUNCNAME $@ && return ${SHUNIT_TRUE}
+  _shunit_shouldSkip failNotSame "$@" && return ${SHUNIT_TRUE}
 
   shunit_message_=${__shunit_lineno}
   if \[ $# -eq 3 ]; then
@@ -953,12 +952,15 @@ _shunit_generateReport() {
 # Test for whether a function should be skipped.
 #
 # Args:
-#   None
+#   $1: string: assert or fail function name
+#   ${@:2}: strings: parameters to $1 call
 # Returns:
 #   boolean: whether the test should be skipped (TRUE/FALSE constant)
 _shunit_shouldSkip() {
   \[ ${__shunit_skip} -eq ${SHUNIT_FALSE} ] && return ${SHUNIT_FALSE}
-  _shunit_assertSkip $@
+  \[ $# -eq 0 ] && \
+      _shunit_fatal '_shunit_shouldSkip() requires one or more arguments'
+  _shunit_assertSkip "$@"
 }
 
 # Records a successful test.
@@ -986,15 +988,27 @@ _shunit_assertFail() {
 # Records a skipped test.
 #
 # Args:
-#   None
+#   $1: string: assert or fail function name
+#   ${@:2}: strings: parameters to $1 call
 _shunit_assertSkip() {
-  _shunit_msg_=$*
-
   __shunit_assertsSkipped=`expr "${__shunit_assertsSkipped}" + 1`
   __shunit_assertsTotal=`expr "${__shunit_assertsTotal}" + 1`
-  [ ${SHUNIT_REPORT_SKIP} -eq ${SHUNIT_TRUE} ] && echo "${__SHUNIT_SKIPPED_MSG_PREFIX}${_shunit_msg_}"
+  \[ $# -eq 0 ] && \
+      _shunit_fatal '_shunit_assertSkip() requires one or more arguments'
+  \[ ${SHUNIT_REPORT_SKIP} -eq ${SHUNIT_FALSE} ] && return
 
-  unset _shunit_msg_
+  shunit_message_="${__shunit_ansi_yellow}SKIPPED:${__shunit_ansi_none}"
+  shunit_message_="${shunit_message_}${__shunit_lineno}"
+  if \[ $# -gt 0 ]; then
+    shunit_message_="${shunit_message_}$1"
+    shift
+    while \[ $# -gt 0 ]; do
+      shunit_message_="${shunit_message_} <$1>"
+      shift
+    done
+  fi
+  ${__SHUNIT_CMD_ECHO_ESC} "${shunit_message_}"
+  unset shunit_message_
 }
 
 # Prepare a script filename for sourcing.
